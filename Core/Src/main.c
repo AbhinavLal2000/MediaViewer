@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "tft.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,7 +56,7 @@ static void MX_SPI2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+tft_t tft;
 /* USER CODE END 0 */
 
 /**
@@ -89,13 +89,20 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
-
+  tft_init(&tft, &hspi2,
+		  TFT_RESET_GPIO_Port, TFT_RESET_Pin,
+		  TFT_DC_GPIO_Port, TFT_DC_Pin,
+		  TFT_CS_GPIO_Port, TFT_CS_Pin);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, RED);
+	  tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, GREEN);
+	  tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLUE);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -164,7 +171,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -198,6 +205,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(OB_LED_GPIO_Port, OB_LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(TFT_CS_GPIO_Port, TFT_CS_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, TFT_DC_Pin|TFT_RESET_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : OB_LED_Pin */
@@ -206,6 +216,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(OB_LED_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : TFT_CS_Pin */
+  GPIO_InitStruct.Pin = TFT_CS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(TFT_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : TFT_DC_Pin TFT_RESET_Pin */
   GPIO_InitStruct.Pin = TFT_DC_Pin|TFT_RESET_Pin;

@@ -60,6 +60,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define OB_LED_Pin GPIO_PIN_13
 #define OB_LED_GPIO_Port GPIOC
+#define TFT_CS_Pin GPIO_PIN_12
+#define TFT_CS_GPIO_Port GPIOB
 #define TFT_DC_Pin GPIO_PIN_9
 #define TFT_DC_GPIO_Port GPIOA
 #define TFT_RESET_Pin GPIO_PIN_10
