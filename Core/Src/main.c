@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "fatfs.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -40,6 +41,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
 
 /* USER CODE BEGIN PV */
@@ -50,6 +52,7 @@ SPI_HandleTypeDef hspi2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -57,6 +60,11 @@ static void MX_SPI2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 tft_t tft;
+FATFS fs;
+FIL fil;
+FRESULT fresult;
+char buffer[256];
+const int tft_y_offset = 11;
 /* USER CODE END 0 */
 
 /**
@@ -88,21 +96,41 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_SPI2_Init();
+  MX_SPI1_Init();
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
   tft_init(&tft, &hspi2,
 		  TFT_RESET_GPIO_Port, TFT_RESET_Pin,
 		  TFT_DC_GPIO_Port, TFT_DC_Pin,
 		  TFT_CS_GPIO_Port, TFT_CS_Pin);
+  tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
+
+  fresult = f_mount(&fs, "", 0);
+  tft_write_num(&tft, 0, 0 * tft_y_offset, fresult, WHITE, BLACK);
+
+  fresult = f_open(&fil, "LOG.LOG", FA_OPEN_ALWAYS | FA_WRITE);
+  tft_write_num(&tft, 0, 1 * tft_y_offset, fresult, WHITE, BLACK);
+
+  f_puts("test.", &fil);
+
+  fresult = f_close(&fil);
+  tft_write_num(&tft, 0, 2 * tft_y_offset, fresult, WHITE, BLACK);
+
+  fresult = f_open(&fil, "LOG.LOG", FA_READ);
+  tft_write_num(&tft, 0, 3 * tft_y_offset, fresult, WHITE, BLACK);
+
+  f_gets(buffer, fil.fsize, &fil);
+  fresult = f_close(&fil);
+  tft_write_num(&tft, 0, 4 * tft_y_offset, fresult, WHITE, BLACK);
+
+  tft_write_string(&tft, 0, 5 * tft_y_offset, buffer, WHITE, BLACK);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, RED);
-	  tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, GREEN);
-	  tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLUE);
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -146,6 +174,44 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
 }
 
 /**
@@ -198,17 +264,17 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(OB_LED_GPIO_Port, OB_LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(TFT_CS_GPIO_Port, TFT_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SD_CS_Pin|TFT_DC_Pin|TFT_RESET_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, TFT_DC_Pin|TFT_RESET_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TFT_CS_GPIO_Port, TFT_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : OB_LED_Pin */
   GPIO_InitStruct.Pin = OB_LED_Pin;
@@ -217,19 +283,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(OB_LED_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : SD_CS_Pin TFT_DC_Pin TFT_RESET_Pin */
+  GPIO_InitStruct.Pin = SD_CS_Pin|TFT_DC_Pin|TFT_RESET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : TFT_CS_Pin */
   GPIO_InitStruct.Pin = TFT_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(TFT_CS_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : TFT_DC_Pin TFT_RESET_Pin */
-  GPIO_InitStruct.Pin = TFT_DC_Pin|TFT_RESET_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
