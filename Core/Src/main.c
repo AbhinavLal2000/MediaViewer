@@ -63,8 +63,85 @@ tft_t tft;
 FATFS fs;
 FIL fil;
 FRESULT fresult;
-char buffer[256];
+DIR fdir;
+FILINFO flinfo;
 const int tft_y_offset = 11;
+char *result[20] = {
+		"ok",
+		"disk error",
+		"not ready",
+		"no file",
+		"no path",
+		"invalid name",
+		"denied",
+		"no access",
+		"invalid object",
+		"write protect",
+		"invalid drive",
+		"no area",
+		"no fs",
+		"mkfs abort",
+		"timeout",
+		"locked",
+		"no mem",
+		"too many files",
+		"invalid param"
+};
+
+void sys_flog(FRESULT res)
+{
+	tft_write_string(&tft, 0, 13 * tft_y_offset, result[res], MAGENTA, BLACK);
+}
+
+int sys_flist(const TCHAR* path, uint8_t tft_x_pos, uint8_t tft_y_pos)
+{
+	uint8_t items = tft_y_pos;
+	DIR fdir;
+	FRESULT fresult;
+	FILINFO flinfo;
+	uint16_t item_color = WHITE;
+
+	fresult = f_opendir(&fdir, path);
+	sys_flog(fresult);
+	if (fresult != FR_OK)
+		return -1;
+
+	while (1)
+	{
+		fresult = f_readdir(&fdir, &flinfo);
+		sys_flog(fresult);
+		if ((fresult != FR_OK) || (flinfo.fname[0] == 0))
+			break;
+		item_color = (flinfo.fattrib & AM_DIR) ? CYAN : WHITE;
+		if (!(flinfo.fattrib & AM_HID))
+		{
+			tft_write_string(&tft, tft_x_pos, tft_y_pos * tft_y_offset, flinfo.fname, item_color, BLACK);
+			tft_y_pos++;
+		}
+	}
+	fresult = f_closedir(&fdir);
+	sys_flog(fresult);
+	if (fresult != FR_OK)
+		return -2;
+
+	return tft_y_pos - items;
+}
+
+int sys_fread(const TCHAR* path)
+{
+	FIL fil;
+	FRESULT fresult;
+	char buffer[256];
+	fresult = f_open(&fil, path, FA_OPEN_ALWAYS | FA_WRITE);
+	sys_flog(fresult);
+	if (fresult != FR_OK)
+		return -1;
+	memset(buffer, 0, 256);
+	f_gets(buffer, fil.fsize, &fil);
+	tft_write_string(&tft, 0, 0, buffer, WHITE, BLACK);
+	return 0;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -106,7 +183,11 @@ int main(void)
   tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
 
   fresult = f_mount(&fs, "", 0);
-  tft_write_num(&tft, 0, 0 * tft_y_offset, fresult, WHITE, BLACK);
+  sys_flog(fresult);
+  sys_flist("", 0, 0);
+  sys_fread("FILE.TXT");
+
+  /*
 
   fresult = f_open(&fil, "LOG.LOG", FA_OPEN_ALWAYS | FA_WRITE);
   tft_write_num(&tft, 0, 1 * tft_y_offset, fresult, WHITE, BLACK);
@@ -124,6 +205,7 @@ int main(void)
   tft_write_num(&tft, 0, 4 * tft_y_offset, fresult, WHITE, BLACK);
 
   tft_write_string(&tft, 0, 5 * tft_y_offset, buffer, WHITE, BLACK);
+  */
 
   /* USER CODE END 2 */
 
