@@ -107,11 +107,13 @@ static const uint16_t fdata [] = {
 void tft_send_data(tft_t *tft, uint8_t data) {
     HAL_GPIO_WritePin(tft->dc_port, tft->dc_pin, GPIO_PIN_SET);
     HAL_SPI_Transmit(tft->hspi, &data, 1, HAL_MAX_DELAY);
+    //HAL_SPI_Transmit_DMA(tft->hspi, &data, 1);
 }
 
 void tft_send_cmd(tft_t *tft, uint8_t cmd) {
 	HAL_GPIO_WritePin(tft->dc_port, tft->dc_pin, GPIO_PIN_RESET);
 	HAL_SPI_Transmit(tft->hspi, &cmd, 1, HAL_MAX_DELAY);
+	//HAL_SPI_Transmit_DMA(tft->hspi, &cmd, 1);
 }
 
 void tft_cs_high(tft_t *tft) {
@@ -224,15 +226,28 @@ void tft_write_string(tft_t* tft, uint8_t x, uint8_t y, char* str, uint16_t tcol
     while (*str != 0)
     {
         tft_set_addr_window(tft, _x, y, 6+_x, 9+y);
-        tft_write_char(tft, *str, tcolor, bcolor);
-        _x += 7;
+        if (!((*str == '\r') || (*str == '\n')))
+        {
+        	tft_write_char(tft, *str, tcolor, bcolor);
+        	_x += 7;
+        	i++;
+        }
         str++;
-        i++;
         if (i > 17)
         {
             i = 0;
             y += 10;
             _x = x;
+        }
+        else if (*str == '\r')
+        {
+        	_x = x;
+        	i = 0;
+        }
+        else if (*str == '\n')
+        {
+        	y += 10;
+        	i = 0;
         }
     }
 }

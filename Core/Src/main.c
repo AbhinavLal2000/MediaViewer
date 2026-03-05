@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "tft.h"
+#include "sys_fm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,89 +59,9 @@ static void MX_SPI1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-tft_t tft;
-FATFS fs;
-FIL fil;
-FRESULT fresult;
-DIR fdir;
-FILINFO flinfo;
+tft_t tftObject;
 const int tft_y_offset = 11;
-char *result[20] = {
-		"ok",
-		"disk error",
-		"not ready",
-		"no file",
-		"no path",
-		"invalid name",
-		"denied",
-		"no access",
-		"invalid object",
-		"write protect",
-		"invalid drive",
-		"no area",
-		"no fs",
-		"mkfs abort",
-		"timeout",
-		"locked",
-		"no mem",
-		"too many files",
-		"invalid param"
-};
-
-void sys_flog(FRESULT res)
-{
-	tft_write_string(&tft, 0, 13 * tft_y_offset, result[res], MAGENTA, BLACK);
-}
-
-int sys_flist(const TCHAR* path, uint8_t tft_x_pos, uint8_t tft_y_pos)
-{
-	uint8_t items = tft_y_pos;
-	DIR fdir;
-	FRESULT fresult;
-	FILINFO flinfo;
-	uint16_t item_color = WHITE;
-
-	fresult = f_opendir(&fdir, path);
-	sys_flog(fresult);
-	if (fresult != FR_OK)
-		return -1;
-
-	while (1)
-	{
-		fresult = f_readdir(&fdir, &flinfo);
-		sys_flog(fresult);
-		if ((fresult != FR_OK) || (flinfo.fname[0] == 0))
-			break;
-		item_color = (flinfo.fattrib & AM_DIR) ? CYAN : WHITE;
-		if (!(flinfo.fattrib & AM_HID))
-		{
-			tft_write_string(&tft, tft_x_pos, tft_y_pos * tft_y_offset, flinfo.fname, item_color, BLACK);
-			tft_y_pos++;
-		}
-	}
-	fresult = f_closedir(&fdir);
-	sys_flog(fresult);
-	if (fresult != FR_OK)
-		return -2;
-
-	return tft_y_pos - items;
-}
-
-int sys_fread(const TCHAR* path)
-{
-	FIL fil;
-	FRESULT fresult;
-	char buffer[256];
-	fresult = f_open(&fil, path, FA_OPEN_ALWAYS | FA_WRITE);
-	sys_flog(fresult);
-	if (fresult != FR_OK)
-		return -1;
-	memset(buffer, 0, 256);
-	f_gets(buffer, fil.fsize, &fil);
-	tft_write_string(&tft, 0, 0, buffer, WHITE, BLACK);
-	return 0;
-}
-
+FileEntry fileTable;
 /* USER CODE END 0 */
 
 /**
@@ -151,6 +71,10 @@ int sys_fread(const TCHAR* path)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+
+
+	FRESULT fresult = FR_OK;
+	FATFS fs;
 
   /* USER CODE END 1 */
 
@@ -176,16 +100,19 @@ int main(void)
   MX_SPI1_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
-  tft_init(&tft, &hspi2,
+  tft_init(&tftObject, &hspi2,
 		  TFT_RESET_GPIO_Port, TFT_RESET_Pin,
 		  TFT_DC_GPIO_Port, TFT_DC_Pin,
 		  TFT_CS_GPIO_Port, TFT_CS_Pin);
-  tft_fill_rect(&tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
-
+  tft_fill_rect(&tftObject, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
+  tft_new_bar(&tftObject, BLUE, 144);
+  tft_new_bar(&tftObject, BLUE, 0);
   fresult = f_mount(&fs, "", 0);
-  sys_flog(fresult);
-  sys_flist("", 0, 0);
-  sys_fread("FILE.TXT");
+  sys_flog(&tftObject, fresult);
+  sys_writeFileEntries("", &fileTable);
+  sys_flist(&fileTable, &tftObject, 0, 2);
+  //sys_fread(&tft, "FILE1.TXT");
+  //sys_fread(&tft, "FILE2.TXT");
 
   /*
 
@@ -378,6 +305,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(TFT_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BUTTON_DOWN_Pin BUTTON_OK_Pin */
+  GPIO_InitStruct.Pin = BUTTON_DOWN_Pin|BUTTON_OK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 
