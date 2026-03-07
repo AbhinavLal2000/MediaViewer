@@ -72,6 +72,8 @@ void Error_Handler(void);
 #define BUTTON_DOWN_GPIO_Port GPIOB
 #define BUTTON_OK_Pin GPIO_PIN_4
 #define BUTTON_OK_GPIO_Port GPIOB
+#define BUTTON_BACK_Pin GPIO_PIN_5
+#define BUTTON_BACK_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 /* USER CODE END Private defines */
 

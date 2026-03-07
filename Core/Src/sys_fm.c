@@ -29,10 +29,12 @@ static char *result[20] = {
 		"invalid param"
 };
 
-void sys_flog(tft_t *tft, FRESULT res)
+void sys_flog(tft_t *tft, char *str, FRESULT res)
 {
+	char buf[32] = {0};
 	tft_fill_rect(tft, 3, 147, ST_WIDTH-4, 8, BLACK);
-	tft_write_string(tft, 3, 147, result[res], ORANGE, BLACK);
+	sprintf(buf, "%s %s", str, result[res]);
+	tft_write_string(tft, 3, 147, buf, ORANGE, BLACK);
 }
 
 void sys_title(tft_t *tft, const char *title)
@@ -43,20 +45,20 @@ void sys_title(tft_t *tft, const char *title)
 		tft_write_string(tft, 3, 3, (char *)title, ORANGE, BLACK);
 }
 
-int sys_writeFileEntries(const TCHAR* path, FileEntry *fileEntries)
+int sys_writeFileEntries(const TCHAR *path, FileEntry *fileEntries)
 {
 	DIR fdir = {0};
 	FRESULT fresult = FR_OK;
 	FILINFO flinfo = {0};
-
+	fileEntries->index = 0;
+	//fileEntries->path = path;
 	fresult = f_opendir(&fdir, path);
 	if (fresult != FR_OK)
 	{
 		return -1;
 	}
 
-	fileEntries->index = 0;
-	fileEntries->path = path;
+	sys_flog(&tftObject, "dir open", fresult);
 
 	while (1)
 	{
@@ -81,96 +83,126 @@ int sys_writeFileEntries(const TCHAR* path, FileEntry *fileEntries)
 		return -2;
 	}
 
+	sys_flog(&tftObject, "dir close", fresult);
+
 	return fileEntries->index;
 }
 
-int sys_flist(FileEntry *fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tft_y_pos)
+static void sys_processFile(FILINFO fileInfo)
 {
+	char *fileNameToken;
+	char tempFileName[13];
+
+	memset(tempFileName, 0, 13);
+	strcpy(tempFileName, fileInfo.fname);
+	strtok(tempFileName, ".");
+	fileNameToken = strtok(NULL, ".");
+	if (fileNameToken != NULL)
+	{
+		if (strcmp((const char*) fileNameToken, "TXT") == 0)
+		{
+			sys_fread(&tftObject, fileInfo.fname);
+		}
+		else if (strcmp((const char*) fileNameToken, "BMP") == 0)
+		{
+			sys_readBMP(&tftObject, fileInfo.fname);
+		}
+		else if (strcmp((const char*) fileNameToken, "JPG") == 0)
+		{
+			sys_readJPG(&tftObject, fileInfo.fname);
+		}
+	}
+}
+
+int sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tft_y_pos)
+{
+	FRESULT fresult = FR_OK;
 	uint8_t selected = 0;
 	uint16_t item_color = WHITE;
-	char tempFileName[13];
-	char *fileNameToken;
 	uint8_t buttonOkStatus = 0;
 	uint8_t original_y_pos = tft_y_pos;
+	uint8_t run = 1;
+	TCHAR cwd[32] = {0};
+	FileEntry newFileTable = {0};
 
-	sys_title(tft, fileTable->path);
+	tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
+	tft_new_bar(tft, BLUE, 144);
+	tft_new_bar(tft, BLUE, 0);
+	//sys_title(tft, fileTable.path);
 
-	for (uint8_t i = 0; ((i < MAX_TFT_LIST_ENTRIES) && (i < fileTable->index)); i++)
+	for (uint8_t i = 0; ((i < MAX_TFT_LIST_ENTRIES) && (i < fileTable.index)); i++)
 	{
-		item_color = (fileTable->flinfo[i].fattrib & AM_DIR) ? YELLOW : WHITE;
-		tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable->flinfo[i].fname, item_color, BLACK);
+		item_color = (fileTable.flinfo[i].fattrib & AM_DIR) ? YELLOW : WHITE;
+		tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable.flinfo[i].fname, item_color, BLACK);
 		tft_y_pos++;
 	}
 
 	tft_y_pos = original_y_pos;
-	tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable->flinfo[selected].fname, GREEN, BLACK);
+	tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable.flinfo[selected].fname, GREEN, BLACK);
 
-	while (1)
+	while (run)
 	{
 		if ((HAL_GPIO_ReadPin(BUTTON_DOWN_GPIO_Port, BUTTON_DOWN_Pin) == 1) && (buttonOkStatus == 0))
 		{
 			HAL_Delay(200);
-			item_color = (fileTable->flinfo[selected].fattrib & AM_DIR) ? YELLOW : WHITE;
-			tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable->flinfo[selected].fname, item_color, BLACK);
+			item_color = (fileTable.flinfo[selected].fattrib & AM_DIR) ? YELLOW : WHITE;
+			tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable.flinfo[selected].fname, item_color, BLACK);
 			selected++;
 			tft_y_pos++;
-			if ((selected >= MAX_TFT_LIST_ENTRIES) || (tft_y_pos >= (MAX_TFT_LIST_ENTRIES+2)) || (selected >= fileTable->index))
+			if ((selected >= MAX_TFT_LIST_ENTRIES) || (tft_y_pos >= (MAX_TFT_LIST_ENTRIES+2)) || (selected >= fileTable.index))
 			{
 				selected = 0;
 				tft_y_pos = original_y_pos;
 			}
-			tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable->flinfo[selected].fname, GREEN, BLACK);
+			tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable.flinfo[selected].fname, GREEN, BLACK);
 		}
 		if ((HAL_GPIO_ReadPin(BUTTON_OK_GPIO_Port, BUTTON_OK_Pin) == 1) && (buttonOkStatus == 0))
 		{
 			HAL_Delay(200);
-			if (fileTable->flinfo[selected].fattrib & AM_DIR)
+			if (fileTable.flinfo[selected].fattrib & AM_DIR)
 			{
-				// TODO: directory handling
+				//fresult = f_getcwd(cwd, 32);
+				//memset(cwd, 0, 32);
+				fresult = f_chdir(fileTable.flinfo[selected].fname);
+				fresult = f_getcwd(cwd, 32);
+				sys_writeFileEntries(cwd, &newFileTable);
+				if (fresult == FR_OK)
+				{
+					sys_flist(newFileTable, tft, 0, 2);
+				}
+				//f_chdir(path);
+				buttonOkStatus = 1;
 			}
 			else
 			{
-				memset(tempFileName, 0, 13);
-				strcpy(tempFileName, fileTable->flinfo[selected].fname);
-				strtok(tempFileName, ".");
-				fileNameToken = strtok(NULL, ".");
-				if (fileNameToken != NULL)
-				{
-					if (strcmp((const char *)fileNameToken, "TXT") == 0)
-					{
-						sys_fread(tft, fileTable->flinfo[selected].fname);
-						buttonOkStatus = 1;
-					}
-					else if (strcmp((const char *)fileNameToken, "BMP") == 0)
-					{
-						sys_readBMP(tft, fileTable->flinfo[selected].fname);
-						buttonOkStatus = 1;
-					}
-					else if (strcmp((const char *)fileNameToken, "JPG") == 0)
-					{
-						sys_readJPG(tft, fileTable->flinfo[selected].fname);
-						buttonOkStatus = 1;
-					}
-				}
+				sys_processFile(fileTable.flinfo[selected]);
+				buttonOkStatus = 1;
 			}
 		}
-		if ((HAL_GPIO_ReadPin(BUTTON_OK_GPIO_Port, BUTTON_OK_Pin) == 1) && (buttonOkStatus == 1))
+		if (HAL_GPIO_ReadPin(BUTTON_BACK_GPIO_Port, BUTTON_BACK_Pin) == 1)
 		{
 			HAL_Delay(200);
-			buttonOkStatus = 0;
-			tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
-			tft_new_bar(tft, BLUE, 144);
-			tft_new_bar(tft, BLUE, 0);
-			sys_title(tft, fileTable->path);
-			tft_y_pos = original_y_pos;
-			for (uint8_t i = 0; ((i < MAX_TFT_LIST_ENTRIES) && (i < fileTable->index)); i++)
+			if (buttonOkStatus == 0)
 			{
-				item_color = (fileTable->flinfo[i].fattrib & AM_DIR) ? YELLOW : WHITE;
-				tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable->flinfo[i].fname, item_color, BLACK);
-				tft_y_pos++;
+				run = 0;
 			}
-			tft_y_pos = selected + 2;
-			tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable->flinfo[selected].fname, GREEN, BLACK);
+			else if (buttonOkStatus == 1)
+			{
+				buttonOkStatus = 0;
+				tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
+				tft_new_bar(tft, BLUE, 144);
+				tft_new_bar(tft, BLUE, 0);
+				//sys_title(tft, fileTable.path);
+				tft_y_pos = original_y_pos;
+				for (uint8_t i = 0; ((i < MAX_TFT_LIST_ENTRIES) && (i < fileTable.index)); i++)
+				{
+					item_color = (fileTable.flinfo[i].fattrib & AM_DIR) ? YELLOW : WHITE;
+					tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable.flinfo[i].fname, item_color, BLACK);
+					tft_y_pos++;
+				}
+				tft_y_pos = selected + 2;
+				tft_write_string(tft, tft_x_pos, tft_y_pos * tft_y_offset, fileTable.flinfo[selected].fname, GREEN, BLACK);
+			}
 		}
 	}
 
@@ -186,7 +218,7 @@ int sys_fread(tft_t *tft, const TCHAR* path)
 
 	sys_title(tft, path);
 	fresult = f_open(&fil, path, FA_OPEN_ALWAYS | FA_READ);
-	sys_flog(tft, fresult);
+	sys_flog(tft, (char*)path, fresult);
 	if (fresult != FR_OK)
 	{
 		return -1;
@@ -194,7 +226,7 @@ int sys_fread(tft_t *tft, const TCHAR* path)
 	
 	memset(buffer, 0, 256);
 	fresult = f_read(&fil, buffer, fil.fsize, &count);
-	sys_flog(tft, fresult);
+	sys_flog(tft, "file read", fresult);
 	if (fresult != FR_OK)
 	{
 		goto close;
@@ -206,7 +238,7 @@ int sys_fread(tft_t *tft, const TCHAR* path)
 
 close:
 	fresult = f_close(&fil);
-	sys_flog(tft, fresult);
+	sys_flog(tft, "file close", fresult);
 	if (fresult != FR_OK)
 	{
 		return -2;

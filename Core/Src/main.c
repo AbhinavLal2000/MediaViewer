@@ -75,7 +75,7 @@ int main(void)
 
 	FRESULT fresult = FR_OK;
 	FATFS fs;
-
+	FileEntry fileTable = {0};
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -104,13 +104,12 @@ int main(void)
 		  TFT_RESET_GPIO_Port, TFT_RESET_Pin,
 		  TFT_DC_GPIO_Port, TFT_DC_Pin,
 		  TFT_CS_GPIO_Port, TFT_CS_Pin);
-  tft_fill_rect(&tftObject, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
-  tft_new_bar(&tftObject, BLUE, 144);
-  tft_new_bar(&tftObject, BLUE, 0);
+
   fresult = f_mount(&fs, "", 0);
-  sys_flog(&tftObject, fresult);
+  sys_flog(&tftObject, "sd mount", fresult);
+
   sys_writeFileEntries("", &fileTable);
-  sys_flist(&fileTable, &tftObject, 0, 2);
+  sys_flist(fileTable, &tftObject, 0, 2);
   //sys_fread(&tft, "FILE1.TXT");
   //sys_fread(&tft, "FILE2.TXT");
 
@@ -208,7 +207,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -246,7 +245,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -306,8 +305,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(TFT_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : BUTTON_DOWN_Pin BUTTON_OK_Pin */
-  GPIO_InitStruct.Pin = BUTTON_DOWN_Pin|BUTTON_OK_Pin;
+  /*Configure GPIO pins : BUTTON_DOWN_Pin BUTTON_OK_Pin BUTTON_BACK_Pin */
+  GPIO_InitStruct.Pin = BUTTON_DOWN_Pin|BUTTON_OK_Pin|BUTTON_BACK_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
