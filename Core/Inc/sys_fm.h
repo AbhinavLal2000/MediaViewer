@@ -36,7 +36,7 @@ typedef struct FileEntry_t FileEntry;
 void sys_flog(tft_t *tft, char *str, FRESULT res);
 void sys_title(tft_t *tft, const char *title);
 int sys_writeFileEntries(const TCHAR *path, FileEntry *fileEntries);
-int sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tft_y_pos);
+uint8_t sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tft_y_pos);
 int sys_fread(tft_t *tft, const TCHAR* path);
 int sys_readBMP(tft_t *tft, const TCHAR *path);
 int sys_readJPG(tft_t *tft, const TCHAR *path);

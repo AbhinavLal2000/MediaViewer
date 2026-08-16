@@ -29,12 +29,14 @@ static char *result[20] = {
 		"invalid param"
 };
 
+char buffer[4096];
+
 void sys_flog(tft_t *tft, char *str, FRESULT res)
 {
-	char buf[32] = {0};
+	memset(buffer, 0, sizeof(buffer));
 	tft_fill_rect(tft, 3, 147, ST_WIDTH-4, 8, BLACK);
-	sprintf(buf, "%s %s", str, result[res]);
-	tft_write_string(tft, 3, 147, buf, ORANGE, BLACK);
+	sprintf(buffer, "%s %s", str, result[res]);
+	tft_write_string(tft, 3, 147, buffer, ORANGE, BLACK);
 }
 
 void sys_title(tft_t *tft, const char *title)
@@ -91,9 +93,9 @@ int sys_writeFileEntries(const TCHAR *path, FileEntry *fileEntries)
 static void sys_processFile(FILINFO fileInfo)
 {
 	char *fileNameToken;
-	char tempFileName[13];
+	char *tempFileName = buffer;
 
-	memset(tempFileName, 0, 13);
+	memset(buffer, 0, sizeof(buffer));
 	strcpy(tempFileName, fileInfo.fname);
 	strtok(tempFileName, ".");
 	fileNameToken = strtok(NULL, ".");
@@ -111,19 +113,24 @@ static void sys_processFile(FILINFO fileInfo)
 		{
 			sys_readJPG(&tftObject, fileInfo.fname);
 		}
+		else if (strcmp((const char*) fileNameToken, "JPEG") == 0)
+		{
+			sys_readJPG(&tftObject, fileInfo.fname);
+		}
+		else if (strcmp((const char*) fileNameToken, "BIN") == 0)
+		{
+			sys_readBIN(&tftObject, fileInfo.fname);
+		}
 	}
 }
 
-int sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tft_y_pos)
+uint8_t sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tft_y_pos)
 {
-	FRESULT fresult = FR_OK;
 	uint8_t selected = 0;
 	uint16_t item_color = WHITE;
 	uint8_t buttonOkStatus = 0;
 	uint8_t original_y_pos = tft_y_pos;
 	uint8_t run = 1;
-	TCHAR cwd[32] = {0};
-	FileEntry newFileTable = {0};
 
 	tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
 	tft_new_bar(tft, BLUE, 144);
@@ -163,6 +170,7 @@ int sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tft_y_
 			{
 				//fresult = f_getcwd(cwd, 32);
 				//memset(cwd, 0, 32);
+				/*
 				fresult = f_chdir(fileTable.flinfo[selected].fname);
 				fresult = f_getcwd(cwd, 32);
 				sys_writeFileEntries(cwd, &newFileTable);
@@ -172,6 +180,8 @@ int sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tft_y_
 				}
 				//f_chdir(path);
 				buttonOkStatus = 1;
+				*/
+				return selected;
 			}
 			else
 			{
@@ -214,8 +224,8 @@ int sys_fread(tft_t *tft, const TCHAR* path)
 	UINT count = 0;
 	FIL fil;
 	FRESULT fresult;
-	char buffer[256];
 
+	memset(buffer, 0, sizeof(buffer));
 	sys_title(tft, path);
 	fresult = f_open(&fil, path, FA_OPEN_ALWAYS | FA_READ);
 	sys_flog(tft, (char*)path, fresult);
@@ -224,7 +234,6 @@ int sys_fread(tft_t *tft, const TCHAR* path)
 		return -1;
 	}
 	
-	memset(buffer, 0, 256);
 	fresult = f_read(&fil, buffer, fil.fsize, &count);
 	sys_flog(tft, "file read", fresult);
 	if (fresult != FR_OK)
@@ -314,7 +323,7 @@ close:
 
 UINT in_func (JDEC *jd, BYTE *buff, UINT nbyte)
 {
-    UINT br;
+    UINT br = nbyte;
     FIL *fp = (FIL*)jd->device;
 
     if(buff)
@@ -327,29 +336,18 @@ UINT in_func (JDEC *jd, BYTE *buff, UINT nbyte)
 
 int out_func (JDEC *jd, void *bitmap, JRECT *rect)
 {
-	uint16_t color = 0;
-	uint16_t r = 0, b = 0, g = 0;
-    uint8_t *src = (uint8_t*)bitmap;
+    uint16_t *pixels = (uint16_t *)bitmap;
+    uint16_t width  = rect->right - rect->left + 1;
+    uint16_t height = rect->bottom - rect->top + 1;
 
-    for (int y = rect->top; y <= rect->bottom; y++)
-    {
-        for (int x = rect->left; x <= rect->right; x++)
-        {
-            r = *src++;
-            g = *src++;
-            b = *src++;
+    tft_set_addr_window(&tftObject, rect->left, rect->top, rect->right, rect->bottom);
 
-            color =
-                ((r & 0xF8) << 8) |
-                ((g & 0xFC) << 3) |
-                (b >> 3);
-
-            tft_cs_low(&tftObject);
-            tft_send_data(&tftObject, color >> 8);
-            tft_send_data(&tftObject, color & 0xFF);
-            tft_cs_high(&tftObject);
-        }
+    tft_cs_low(&tftObject);
+    for (uint32_t i = 0; i < width * height; i++) {
+    	tft_send_data(&tftObject, pixels[i] >> 8);
+    	tft_send_data(&tftObject, pixels[i] & 0xFF);
     }
+    tft_cs_high(&tftObject);
 
     return 1;
 }
@@ -359,10 +357,10 @@ int sys_readJPG(tft_t *tft, const TCHAR *path)
 	FIL file;
 	JDEC jd;
 	JRESULT res;
-	uint8_t work[4096];
 
+	memset(buffer, 0, sizeof(buffer));
 	f_open(&file, path, FA_OPEN_ALWAYS | FA_READ);
-	res = jd_prepare(&jd, in_func, work, sizeof(work), &file);
+	res = jd_prepare(&jd, in_func, buffer, sizeof(buffer), &file);
 
 	if (res == JDR_OK)
 	{
@@ -372,6 +370,46 @@ int sys_readJPG(tft_t *tft, const TCHAR *path)
 	}
 
 	f_close(&file);
+	return 0;
+}
+
+int sys_readBIN(tft_t *tft, const TCHAR* path)
+{
+	UINT count = 0;
+	FIL fil;
+	FRESULT fresult;
+
+	memset(buffer, 0, sizeof(buffer));
+	tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
+
+	fresult = f_open(&fil, path, FA_OPEN_ALWAYS | FA_READ);
+	sys_flog(tft, (char*)path, fresult);
+	if (fresult != FR_OK)
+	{
+		return -1;
+	}
+
+	fresult = f_read(&fil, buffer, fil.fsize, &count);`
+	sys_flog(tft, "file read", fresult);
+	if (fresult != FR_OK)
+	{
+		goto close;
+	}
+
+	tft_cs_low(tft);
+	for (uint32_t i = 0; i < ST_WIDTH * ST_HEIGHT; i++) {
+		tft_send_data(tft, buffer[i] >> 8);
+		tft_send_data(tft, buffer[i] & 0xFF);
+	}
+	tft_cs_high(tft);
+
+close:
+	fresult = f_close(&fil);
+	sys_flog(tft, "file close", fresult);
+	if (fresult != FR_OK)
+	{
+		return -2;
+	}
 	return 0;
 }
 
