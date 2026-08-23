@@ -33,10 +33,11 @@ char buffer[4096];
 
 void sys_flog(tft_t *tft, char *str, FRESULT res)
 {
-	memset(buffer, 0, sizeof(buffer));
+	char buff[32];
+	memset(buff, 0, sizeof(buff));
 	tft_fill_rect(tft, 3, 147, ST_WIDTH-4, 8, BLACK);
-	sprintf(buffer, "%s %s", str, result[res]);
-	tft_write_string(tft, 3, 147, buffer, ORANGE, BLACK);
+	sprintf(buff, "%s %s", str, result[res]);
+	tft_write_string(tft, 3, 147, buff, ORANGE, BLACK);
 }
 
 void sys_title(tft_t *tft, const char *title)
@@ -102,6 +103,10 @@ static void sys_processFile(FILINFO fileInfo)
 	if (fileNameToken != NULL)
 	{
 		if (strcmp((const char*) fileNameToken, "TXT") == 0)
+		{
+			sys_fread(&tftObject, fileInfo.fname);
+		}
+		else if (strcmp((const char*) fileNameToken, "C") == 0)
 		{
 			sys_fread(&tftObject, fileInfo.fname);
 		}
@@ -378,9 +383,7 @@ int sys_readBIN(tft_t *tft, const TCHAR* path)
 	UINT count = 0;
 	FIL fil;
 	FRESULT fresult;
-
-	memset(buffer, 0, sizeof(buffer));
-	tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
+	uint16_t data = 0;
 
 	fresult = f_open(&fil, path, FA_OPEN_ALWAYS | FA_READ);
 	sys_flog(tft, (char*)path, fresult);
@@ -389,17 +392,27 @@ int sys_readBIN(tft_t *tft, const TCHAR* path)
 		return -1;
 	}
 
-	fresult = f_read(&fil, buffer, fil.fsize, &count);`
-	sys_flog(tft, "file read", fresult);
 	if (fresult != FR_OK)
 	{
 		goto close;
 	}
 
+	tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
+	tft_set_addr_window(tft, 0, 0, ST_WIDTH-1, ST_HEIGHT-1);
+
 	tft_cs_low(tft);
-	for (uint32_t i = 0; i < ST_WIDTH * ST_HEIGHT; i++) {
-		tft_send_data(tft, buffer[i] >> 8);
-		tft_send_data(tft, buffer[i] & 0xFF);
+	for (uint16_t x = 0; x < 901; x++)
+	{
+		for (uint16_t i = 0; i < (ST_WIDTH * ST_HEIGHT); i++)
+		{
+			fresult = f_read(&fil, &data, sizeof(data), &count);
+			if (fresult != FR_OK)
+			{
+				break;
+			}
+			tft_send_data(tft, data & 0xFF);
+			tft_send_data(tft, data >> 8);
+		}
 	}
 	tft_cs_high(tft);
 

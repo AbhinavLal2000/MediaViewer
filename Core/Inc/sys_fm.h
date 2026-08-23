@@ -40,5 +40,6 @@ uint8_t sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tf
 int sys_fread(tft_t *tft, const TCHAR* path);
 int sys_readBMP(tft_t *tft, const TCHAR *path);
 int sys_readJPG(tft_t *tft, const TCHAR *path);
+int sys_readBIN(tft_t *tft, const TCHAR* path);
 
 #endif /* INC_SYS_FM_H_ */
