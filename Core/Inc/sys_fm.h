@@ -33,6 +33,12 @@ struct FileEntry_t
 };
 typedef struct FileEntry_t FileEntry;
 
+typedef struct
+{
+	char extension[8];
+	int (*proc)(tft_t *tft, const TCHAR *path);
+} fileProc_t;
+
 void sys_flog(tft_t *tft, char *str, FRESULT res);
 void sys_title(tft_t *tft, const char *title);
 int sys_writeFileEntries(const TCHAR *path, FileEntry *fileEntries);
@@ -40,6 +46,6 @@ uint8_t sys_flist(FileEntry fileTable, tft_t *tft, uint8_t tft_x_pos, uint8_t tf
 int sys_fread(tft_t *tft, const TCHAR* path);
 int sys_readBMP(tft_t *tft, const TCHAR *path);
 int sys_readJPG(tft_t *tft, const TCHAR *path);
-int sys_readBIN(tft_t *tft, const TCHAR* path);
+void sys_flog_num(tft_t *tft, uint32_t num);
 
 #endif /* INC_SYS_FM_H_ */

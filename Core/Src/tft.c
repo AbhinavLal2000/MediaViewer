@@ -107,13 +107,11 @@ static const uint16_t fdata [] = {
 void tft_send_data(tft_t *tft, uint8_t data) {
     HAL_GPIO_WritePin(tft->dc_port, tft->dc_pin, GPIO_PIN_SET);
     HAL_SPI_Transmit(tft->hspi, &data, 1, HAL_MAX_DELAY);
-    //HAL_SPI_Transmit_DMA(tft->hspi, &data, 1);
 }
 
 void tft_send_cmd(tft_t *tft, uint8_t cmd) {
 	HAL_GPIO_WritePin(tft->dc_port, tft->dc_pin, GPIO_PIN_RESET);
 	HAL_SPI_Transmit(tft->hspi, &cmd, 1, HAL_MAX_DELAY);
-	//HAL_SPI_Transmit_DMA(tft->hspi, &cmd, 1);
 }
 
 void tft_cs_high(tft_t *tft) {

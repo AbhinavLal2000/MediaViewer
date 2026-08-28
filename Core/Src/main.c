@@ -107,6 +107,8 @@ int main(void)
 		  TFT_DC_GPIO_Port, TFT_DC_Pin,
 		  TFT_CS_GPIO_Port, TFT_CS_Pin);
 
+  tft_fill_rect(&tftObject, 0, 0, ST_WIDTH, ST_HEIGHT, BLACK);
+
   fresult = f_mount(&fs, "", 0);
   sys_flog(&tftObject, "sd mount", fresult);
 
@@ -115,7 +117,7 @@ int main(void)
 
   while (fresult == 0)
   {
-	  dir_index = sys_flist(fileTable, &tftObject, 0, 2);
+	  dir_index = sys_flist(fileTable, &tftObject, 0, 0);
 	  fresult = f_chdir(fileTable.flinfo[dir_index].fname);
 	  fresult |= f_getcwd(cwd, 32);
 	  memset(&fileTable, 0, sizeof(fileTable));
