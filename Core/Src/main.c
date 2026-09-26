@@ -60,10 +60,11 @@ static void MX_SPI1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 tft_t tftObject;
-const int tft_y_offset = 11;
-FileEntry fileTable;
 uint8_t dir_index;
 TCHAR cwd[32];
+FRESULT fresult = FR_OK;
+FATFS fs;
+FileEntry fileTable;
 /* USER CODE END 0 */
 
 /**
@@ -74,10 +75,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
-
-	FRESULT fresult = FR_OK;
-	FATFS fs;
-	FileEntry fileTable = {0};
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -111,9 +108,7 @@ int main(void)
 
   fresult = f_mount(&fs, "", 0);
   sys_flog(&tftObject, "sd mount", fresult);
-
   sys_writeFileEntries("", &fileTable);
-  //sys_flist(fileTable, &tftObject, 0, 2);
 
   while (fresult == 0)
   {
@@ -123,30 +118,6 @@ int main(void)
 	  memset(&fileTable, 0, sizeof(fileTable));
 	  sys_writeFileEntries(cwd, &fileTable);
   }
-
-  //sys_fread(&tft, "FILE1.TXT");
-  //sys_fread(&tft, "FILE2.TXT");
-
-  /*
-
-  fresult = f_open(&fil, "LOG.LOG", FA_OPEN_ALWAYS | FA_WRITE);
-  tft_write_num(&tft, 0, 1 * tft_y_offset, fresult, WHITE, BLACK);
-
-  f_puts("test.", &fil);
-
-  fresult = f_close(&fil);
-  tft_write_num(&tft, 0, 2 * tft_y_offset, fresult, WHITE, BLACK);
-
-  fresult = f_open(&fil, "LOG.LOG", FA_READ);
-  tft_write_num(&tft, 0, 3 * tft_y_offset, fresult, WHITE, BLACK);
-
-  f_gets(buffer, fil.fsize, &fil);
-  fresult = f_close(&fil);
-  tft_write_num(&tft, 0, 4 * tft_y_offset, fresult, WHITE, BLACK);
-
-  tft_write_string(&tft, 0, 5 * tft_y_offset, buffer, WHITE, BLACK);
-  */
-
   /* USER CODE END 2 */
 
   /* Infinite loop */

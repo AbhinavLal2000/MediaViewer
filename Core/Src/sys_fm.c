@@ -223,29 +223,63 @@ int sys_fread(tft_t *tft, const TCHAR* path)
 	UINT count = 0;
 	FIL fil;
 	FRESULT fresult;
+	uint8_t write = 0;
 
-	memset(buffer, 0, sizeof(buffer));
 	fresult = f_open(&fil, path, FA_OPEN_ALWAYS | FA_READ);
-	sys_flog(tft, (char*)path, fresult);
 	if (fresult != FR_OK)
 	{
 		return -1;
 	}
 	
-	fresult = f_read(&fil, buffer, fil.fsize, &count);
-	sys_flog(tft, "file read", fresult);
+	memset(buffer, 0, 192);
+	fresult = f_read(&fil, buffer, 192, &count);
 	if (fresult != FR_OK)
 	{
 		goto close;
 	}
-	
-	buffer[count] = 0;
-	tft_fill_rect(tft, 0, 2 * tft_y_offset, ST_WIDTH, ST_HEIGHT-44, BLACK);
-	tft_write_string(tft, 0, 2 * tft_y_offset, buffer, WHITE, BLACK);
+	tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, YELLOW);
+	tft_write_string(tft, 0, 0, buffer, BLACK, YELLOW);
+
+	while (fil.fsize)
+	{
+		if (HAL_GPIO_ReadPin(BUTTON_DOWN_GPIO_Port, BUTTON_DOWN_Pin) == 1)
+		{
+			memset(buffer, 0, 192);
+			fresult = f_read(&fil, buffer, 192, &count);
+			if (fresult != FR_OK)
+			{
+				goto close;
+			}
+			write = 1;
+		}
+		else if (HAL_GPIO_ReadPin(BUTTON_OK_GPIO_Port, BUTTON_OK_Pin) == 1)
+		{
+			if ((fil.fptr - (192*2)) >= 0)
+			{
+				fil.fptr -= (192*2);
+			}
+			memset(buffer, 0, 192);
+			fresult = f_read(&fil, buffer, 192, &count);
+			if (fresult != FR_OK)
+			{
+				goto close;
+			}
+			write = 1;
+		}
+		else if (HAL_GPIO_ReadPin(BUTTON_BACK_GPIO_Port, BUTTON_BACK_Pin) == 1)
+		{
+			goto close;
+		}
+		if (write)
+		{
+			write = 0;
+			tft_fill_rect(tft, 0, 0, ST_WIDTH, ST_HEIGHT, YELLOW);
+			tft_write_string(tft, 0, 0, buffer, BLACK, YELLOW);
+		}
+	}
 
 close:
 	fresult = f_close(&fil);
-	sys_flog(tft, "file close", fresult);
 	if (fresult != FR_OK)
 	{
 		return -2;

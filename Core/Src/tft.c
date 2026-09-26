@@ -247,6 +247,10 @@ void tft_write_string(tft_t* tft, uint8_t x, uint8_t y, char* str, uint16_t tcol
         	y += 10;
         	i = 0;
         }
+        else if (*str == '\t')
+        {
+        	*str = ' ';
+        }
     }
 }
 
